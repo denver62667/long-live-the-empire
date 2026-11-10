@@ -1,5 +1,5 @@
 // Long Live the Empire: game flow and rendering. Content and tuning live in data.js.
-// Flow: pick a court of four (one per seat), then face a run of crises in date order.
+// Flow: pick a court of four (one per seat), then watch it face a run of crises in date order.
 
 const app = document.getElementById('app');
 const SEAT_ORDER = ['ruler', 'general', 'scholar', 'envoy'];
@@ -141,7 +141,7 @@ function showTitle() {
     <p class="goal"><b>Your goal:</b> keep the empire alive for as many years as you can.</p>
     <ol class="steps">
       <li>Pick a Ruler, a General, a Scholar and an Envoy.</li>
-      <li>Send them to face ${DATA.crisesPerGame} real crises, from 500 BC to 1900 AD.</li>
+      <li>Watch them face ${DATA.crisesPerGame} real crises, from 500 BC to 1900 AD.</li>
       <li>Three failures and the empire falls.</li>
     </ol>
     <div style="display:grid;gap:10px">
@@ -155,8 +155,8 @@ function showTitle() {
     <ul class="rules">
       <li><span>👑</span><span><b>Pick your court first.</b> For each of the four seats you see three real people, drawn from any century and any part of the world. Choose one.</span></li>
       <li><span>❓</span><span><b>Strength is hidden</b> until you choose, so what you know matters. Then you see how all three really measured up.</span></li>
-      <li><span>🔥</span><span><b>Then history strikes.</b> For each crisis, pick which of your four answers it. The stronger they are, and the better they suit the threat, the better your odds.</span></li>
-      <li><span>⏳</span><span><b>Leaders tire.</b> Each time you send someone, they lose 1 strength. Lean on one hero and they will wear out.</span></li>
+      <li><span>🔥</span><span><b>Then history strikes.</b> Your court answers each crisis itself, sending whoever has the best odds. The stronger they are, and the better they suit the threat, the better the odds.</span></li>
+      <li><span>⏳</span><span><b>Leaders tire.</b> Each crisis a leader answers costs them 1 strength, so one hero cannot carry the empire. All four picks matter.</span></li>
       <li><span>🤝</span><span><b>History connects them.</b> Some leaders really were allies or enemies. Seat them together to discover hidden bonds and rivalries.</span></li>
     </ul>
     </details>
@@ -238,7 +238,7 @@ function choose(index) {
   </div>`).join('');
 
   const last = state.pick === SEAT_ORDER.length - 1;
-  const nextLabel = last ? 'Your court is set. Face history' : `Next: choose your ${DATA.seats[SEAT_ORDER[state.pick + 1]].name}`;
+  const nextLabel = last ? 'Your court is set. Watch history unfold' : `Next: choose your ${DATA.seats[SEAT_ORDER[state.pick + 1]].name}`;
 
   // The button sits above the cards so nobody has to scroll to move on; the cards are there to browse.
   render(`${courtRow(key)}
@@ -248,7 +248,7 @@ function choose(index) {
     <div class="cards">${cards}</div>
     <button class="ghost" id="next-bottom">${nextLabel}</button>`);
   const go = () => {
-    if (last) return showCrisis();
+    if (last) return showChronicle();
     state.pick += 1;
     showPick();
   };
@@ -256,58 +256,95 @@ function choose(index) {
   document.getElementById('next-bottom').onclick = go;
 }
 
-function showCrisis() {
-  const c = DATA.eras[state.crises[state.step]].crisis;
-  const options = c.options.map((o, i) => {
-    const s = DATA.seats[o.seat];
-    return `<button class="option" data-i="${i}">
-      <span>${s.icon} <b>${esc(o.label)}</b></span>
-      <span class="by">${s.name}: ${esc(state.seats[o.seat].leader.name)} · strength ${seatStrength(o.seat)}</span>
-    </button>`;
-  }).join('');
-  render(`${hud()}
-    <div class="crisis-box">
-      <span class="year">${fmtYear(c.year)}</span>
-      <h2>${esc(c.title)}</h2>
-      <p>${esc(c.text)}</p>
-    </div>
-    <p class="muted small">Who answers it? Strength matters, and so does whether the approach suits the threat. Whoever goes comes back 1 weaker.</p>
-    <div class="cards">${options}</div>`);
-  app.querySelectorAll('.option').forEach((b) => { b.onclick = () => resolve(Number(b.dataset.i)); });
+// The court answers each crisis on its own: it sends whoever has the best odds.
+// Everything is decided here, up front; the screen then plays it back one crisis at a time.
+function planChronicle() {
+  const sent = {};
+  SEAT_ORDER.forEach((k) => { sent[k] = 0; });
+  const strengthOf = (seat) => {
+    state.seats[seat].sent = sent[seat];
+    return seatStrength(seat);
+  };
+  const plan = [];
+  let fails = 0;
+  for (let step = 0; step < state.crises.length && fails < DATA.startStability; step++) {
+    const eraIndex = state.crises[step];
+    const c = DATA.eras[eraIndex].crisis;
+    const scored = c.options.map((o) => {
+      const strength = strengthOf(o.seat);
+      return { o, strength, p: DATA.chance(strength, o.mod, step) };
+    });
+    const pick = scored.reduce((a, b) => (b.p > a.p ? b : a));
+    const won = state.rng() < pick.p;
+    if (!won) fails += 1;
+    sent[pick.o.seat] += 1;
+    plan.push({ eraIndex, c, o: pick.o, strength: pick.strength, p: pick.p, won, holder: state.seats[pick.o.seat].leader.name });
+  }
+  SEAT_ORDER.forEach((k) => { state.seats[k].sent = 0; });
+  return plan;
 }
 
-function resolve(index) {
-  const eraIndex = state.crises[state.step];
-  const c = DATA.eras[eraIndex].crisis;
-  const o = c.options[index];
-  const strength = seatStrength(o.seat);
-  const p = DATA.chance(strength, o.mod, state.step);
-  const won = state.rng() < p;
-  const holder = state.seats[o.seat].leader.name;
+function showChronicle() {
+  const plan = planChronicle();
+  const STEP_MS = 1900;
+  let shown = 0;
+  let timer = null;
 
-  state.results[state.step] = won;
-  state.seats[o.seat].sent += 1;
-  if (!won) state.stability -= 1;
-  const fallen = state.stability <= 0;
-  if (fallen) state.fall = { year: c.year, title: c.title, holder, lose: o.lose };
-  const last = state.step === state.crises.length - 1;
+  render(`<div id="top" class="sticky">${hud()}</div>
+    <p class="muted small">Your court answers each crisis itself, sending whoever has the best odds. Whoever goes comes back 1 weaker.</p>
+    <div class="cards" id="log"></div>
+    <div id="foot"><button class="ghost" id="skip">Skip to the end</button></div>`);
+  const top = document.getElementById('top');
+  const log = document.getElementById('log');
+  const foot = document.getElementById('foot');
 
-  const fit = o.mod > 0 ? 'a good fit for this threat' : o.mod === 0 ? 'a fair fit for this threat' : o.mod === -1 ? 'a risky answer to this threat' : 'a poor fit for this threat';
+  const revealNext = (scroll) => {
+    const e = plan[shown];
+    state.step = shown;
+    state.results[shown] = e.won;
+    state.seats[e.o.seat].sent += 1;
+    if (!e.won) state.stability -= 1;
+    const fallen = state.stability <= 0;
+    if (fallen) state.fall = { year: e.c.year, title: e.c.title, holder: e.holder, lose: e.o.lose };
+    shown += 1;
 
-  render(`${hud()}
-    <div class="crisis-box">
-      <span class="year">${fmtYear(c.year)} · ${esc(c.title)}</span>
-      <p class="result ${won ? 'win' : 'loss'}">${won ? '✓' : '✗'} ${esc(holder)} ${esc(won ? o.win : o.lose)}</p>
-      <p class="muted small">Strength ${strength}, and ${fit}: ${Math.round(p * 100)}% chance.${won ? '' : fallen ? ' The last pillar falls.' : ' The empire loses a pillar.'}</p>
-    </div>
-    <button class="primary" id="next">${fallen ? 'See how it ended' : last ? 'See your legacy' : 'Next crisis'}</button>
-    <div class="learn"><b class="gold">What really happened.</b> ${esc(c.fact)}
-      <p style="margin-top:6px">${wikiLink(EXTRA.crises[eraIndex].wiki, 'Read the full story on Wikipedia')}</p></div>`);
-  document.getElementById('next').onclick = () => {
-    if (fallen || last) return showEnd();
-    state.step += 1;
-    showCrisis();
+    const seat = DATA.seats[e.o.seat];
+    const fit = e.o.mod > 0 ? 'a good fit' : e.o.mod === 0 ? 'a fair fit' : 'a poor fit';
+    const card = document.createElement('div');
+    card.className = 'crisis-box fade-in';
+    card.innerHTML = `<span class="year">${fmtYear(e.c.year)} · ${esc(e.c.title)}</span>
+      <p class="small">${esc(e.c.text)}</p>
+      <p class="muted small">${seat.icon} ${esc(e.holder)} answers: ${esc(e.o.label.charAt(0).toLowerCase() + e.o.label.slice(1).replace(/\.$/, ''))}. Strength ${e.strength}, ${fit}: ${Math.round(e.p * 100)}% chance.</p>
+      <p class="result ${e.won ? 'win' : 'loss'}">${e.won ? '✓' : '✗'} ${esc(e.holder)} ${esc(e.won ? e.o.win : e.o.lose)}</p>
+      ${e.won ? '' : `<p class="muted small">${fallen ? 'The last pillar falls.' : 'The empire loses a pillar.'}</p>`}
+      <details class="more"><summary>What really happened</summary>
+        <p>${esc(e.c.fact)}</p>
+        <p>${wikiLink(EXTRA.crises[e.eraIndex].wiki, 'Read the full story on Wikipedia')}</p>
+      </details>`;
+    log.appendChild(card);
+    top.innerHTML = hud();
+    if (scroll) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
+
+  const finish = () => {
+    clearTimeout(timer);
+    foot.innerHTML = `<button class="primary" id="next">${state.fall ? 'See how it ended' : 'See your legacy'}</button>`;
+    document.getElementById('next').onclick = showEnd;
+  };
+
+  const tick = () => {
+    revealNext(true);
+    if (shown >= plan.length) return finish();
+    timer = setTimeout(tick, STEP_MS);
+  };
+
+  document.getElementById('skip').onclick = () => {
+    clearTimeout(timer);
+    while (shown < plan.length) revealNext(false);
+    finish();
+    foot.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  };
+  timer = setTimeout(tick, 700);
 }
 
 function showEnd() {

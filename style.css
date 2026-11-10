@@ -99,6 +99,7 @@ details.howto .rules { margin-top: 12px; }
 .track i.loss { background: var(--bad); }
 .track i.now { background: var(--gold); }
 
+.sticky { position: sticky; top: 0; z-index: 1; background: var(--bg); padding: 8px 0; margin: -8px 0; }
 .seats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 .seat {
   background: var(--panel);
