@@ -51,9 +51,49 @@ These are well-known claims from ancient or traditional sources, kept as written
 - Leonardo: about 30 dissections; hardening of the arteries.
 - Li Shizhen: died before the book was printed.
 
-## Added 10 November 2026, not yet checked
+## Second pass: 10 November 2026
 
-The 40 leaders and 12 crises in `content-more.js`, and the 13 bonds and rivalries added with them, were written from general knowledge. Their Wikipedia links were confirmed to exist, but the facts themselves have not been through the article-by-article check above.
+The 40 leaders and 25 crises in `content-more.js` were checked the same way, against each subject's English Wikipedia article plus 12 related ones (for example Battle of Zama, Battle of Myeongnyang, Macartney Embassy, Mongol invasion of Europe). The 13 crises added last were written with the articles already open.
+
+### Corrected (12 edits)
+
+| Subject | Was | Now |
+|---|---|---|
+| Suleiman | "his own subjects called him 'the Lawgiver'" | "in Turkey he is remembered as 'the Lawgiver'" (the name is absent from sources of his own time) |
+| Akbar | "roughly tripled the size of the Mughal Empire"; "in 1564" | "greatly enlarged" (the article's "tripled" is about the economy); year removed |
+| Catherine the Great | arrived in Russia "at 14" | "as a teenager" (the article gives 15) |
+| Xuanzang | "about 16 years" | "more than 15 years" (sources give 16 or 17) |
+| William of Rubruck | "active 1253–1255" | "active 1250s" |
+| Lord Macartney | sent home "after an argument over" the kowtow; "not the slightest need" | kowtow dispute no longer given as the cause; "no need of foreign manufactures" |
+| Trần Hưng Đạo | "iron-tipped stakes" | "metal-tipped stakes" |
+| Ibn Sina | textbook "some 500 years" after his death | "some 600 years" (in use until about 1650) |
+| Crisis, 235 | "most of them killed by their own soldiers"; coins "lost almost all their silver" | "many of them"; "badly debased" |
+| Crisis, 1315 | "millions died" | "vast numbers died" |
+| Crisis, 79 | "Titus paid for relief" | "Titus organised relief" |
+| Crisis, 1453 | the emperor "could not afford" Orban | "by one account" Orban first offered his services to the emperor |
+
+### Not confirmed in the articles checked
+
+Well-known claims kept as written. Verify before publishing.
+
+- Louis XVI: the "Rien" diary entry for 14 July 1789.
+- Augustus: Caesar's great-nephew (the article confirms the adoption, not the wording).
+- Qin Shi Huang: king at 13.
+- Scipio Africanus: never lost a battle; command in his mid-twenties.
+- Pyrrhus: killed by a roof tile thrown by an old woman (the article confirms only a street fight in Argos).
+- Trần Hưng Đạo: "cut off my head first".
+- Wellington: "the nearest-run thing"; meeting Napoleon in battle only once; hiding troops behind a hill crest.
+- Ibn Sina: a practising doctor in his teens.
+- Ibn Khaldun: the three-generation cycle.
+- Pasteur: Joseph Meister later working as a caretaker at the Pasteur Institute.
+- William of Rubruck: the debate ending in heavy drinking.
+- Matteo Ricci: never meeting the emperor in person.
+- Benjamin Franklin: the fur cap.
+- Lord Macartney: comparing China to an old ship.
+- Aryabhata: the satellite's launch year (1975).
+- Tiberius Gracchus crisis: killed by a mob led by senators.
+- Indian Rebellion crisis: the rumour about the cartridges offending religion.
+- Cleopatra: closer in time to the Moon landing than to the Great Pyramid (true by arithmetic, not stated in the article).
 
 ## Not checkable
 
