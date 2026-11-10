@@ -5,8 +5,7 @@ const DATA = {
   startYear: -500,
   endYear: 1900,
   startStability: 3,
-  maxStability: 4,
-  stewardStrength: 3,
+  crisesPerGame: 6,   // drawn from the 12 below, faced in date order
 
   seats: {
     ruler:   { name: 'Ruler',   icon: '👑' },
@@ -17,17 +16,12 @@ const DATA = {
 
   // Chance that a crisis response works.
   // strength = the seat holder's current strength, mod = how well that approach suits the crisis,
-  // eraIndex makes later crises slightly harder.
-  chance(strength, mod, eraIndex) {
-    // Tuned by simulation: random play survives all 12 eras about 2% of the time,
-    // perfect knowledge about 23%.
-    const p = 0.085 * (strength + mod) - 0.01 * eraIndex;
+  // step (0-5) makes each successive crisis harder.
+  chance(strength, mod, step) {
+    // Tuned by simulation: random play survives all 6 crises about 14% of the time,
+    // perfect knowledge about 35%.
+    const p = 0.07 * (strength + mod) - 0.03 * step;
     return Math.max(0.05, Math.min(0.95, p));
-  },
-
-  // A legacy loses 1 strength for every 2 eras since the leader was appointed.
-  fade(erasHeld) {
-    return Math.floor(erasHeld / 2);
   },
 
   eras: [
