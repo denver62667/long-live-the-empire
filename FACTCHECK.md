@@ -51,6 +51,10 @@ These are well-known claims from ancient or traditional sources, kept as written
 - Leonardo: about 30 dissections; hardening of the arteries.
 - Li Shizhen: died before the book was printed.
 
+## Added 10 November 2026, not yet checked
+
+The 40 leaders and 12 crises in `content-more.js`, and the 13 bonds and rivalries added with them, were written from general knowledge. Their Wikipedia links were confirmed to exist, but the facts themselves have not been through the article-by-article check above.
+
 ## Not checkable
 
 The 1–10 strength ratings are editorial judgements, not facts.

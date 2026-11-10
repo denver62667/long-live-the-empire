@@ -18,8 +18,8 @@ const DATA = {
   // strength = the seat holder's current strength, mod = how well that approach suits the crisis,
   // step (0-5) makes each successive crisis harder.
   chance(strength, mod, step) {
-    // Tuned by simulation (the court always sends its best odds): random picks survive
-    // all 6 crises about 24% of the time, the strongest picks about 35%.
+    // Tuned by simulation (the court always sends its best odds): the weakest picks survive
+    // all 6 crises about 15% of the time, random picks about 28%, the strongest about 39%.
     const p = 0.07 * (strength + mod) - 0.03 * step;
     return Math.max(0.05, Math.min(0.95, p));
   },

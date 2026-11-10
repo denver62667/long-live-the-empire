@@ -30,10 +30,10 @@ function dailyNumber() {
   return Math.floor((today - Date.UTC(2026, 10, 9)) / 86400000) + 1;
 }
 
-function shuffle(list) {
+function shuffle(list, rng = state.rng) {
   const a = [...list];
   for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(state.rng() * (i + 1));
+    const j = Math.floor(rng() * (i + 1));
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
@@ -64,7 +64,42 @@ function activeLinks() {
 
 // Every candidate for a seat, from every age.
 function seatPool(seat) {
-  return DATA.eras.filter((e) => e.seat === seat).flatMap((e) => e.leaders);
+  return [
+    ...DATA.eras.filter((e) => e.seat === seat).flatMap((e) => e.leaders),
+    ...DATA.moreLeaders.filter((l) => l.seat === seat),
+  ];
+}
+
+// Every crisis, each paired with its Wikipedia page.
+function crisisPool() {
+  return [
+    ...DATA.eras.map((e, i) => ({ c: e.crisis, wiki: EXTRA.crises[i].wiki })),
+    ...DATA.moreCrises.map((c) => ({ c, wiki: c.wiki })),
+  ];
+}
+
+// Deal `size` items from a pool. Free play is a plain random draw. The daily game works
+// through a shuffled copy of the whole pool, a slice per day, so nothing comes back until
+// the pool has been used up; then the pool is reshuffled for the next cycle.
+function deal(list, size, salt) {
+  if (!state.daily) return shuffle(list).slice(0, size);
+  const days = Math.floor(list.length / size);       // days in one cycle
+  const d = state.daily - 1;
+  const cycle = Math.floor(d / days);
+  const start = (d % days) * size;
+  return shuffle(list, seededRng((cycle + 1) * 104729 + salt * 7919)).slice(start, start + size);
+}
+
+// Remember today's daily result, so the title screen can show it.
+const DAILY_KEY = 'lle_daily';
+function loadDaily() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(DAILY_KEY));
+    return saved && saved.n === dailyNumber() ? saved : null;
+  } catch { return null; }
+}
+function saveDaily(years) {
+  try { localStorage.setItem(DAILY_KEY, JSON.stringify({ n: dailyNumber(), years })); } catch { /* storage unavailable */ }
 }
 
 function pips(n) {
@@ -132,6 +167,7 @@ function hud() {
 
 function showTitle() {
   const best = loadBest();
+  const today = loadDaily();
   render(`<div class="title-screen">
     <div>
       <div class="crest">🏛️</div>
@@ -146,9 +182,9 @@ function showTitle() {
     </ol>
     <div style="display:grid;gap:10px">
       <input id="empire-name" type="text" maxlength="24" placeholder="Name your empire" autocomplete="off">
-      <button class="primary" id="daily">Play today's empire · #${dailyNumber()}</button>
+      <button class="primary" id="daily">${today ? 'Replay' : 'Play'} today's empire · #${dailyNumber()}</button>
       <button class="ghost" id="free">Free play</button>
-      <p class="muted small center">Today's empire deals everyone the same leaders and the same luck.${best ? `<br>Your longest reign: ${fmtNum(best)} years` : ''}</p>
+      <p class="muted small center">${today ? `Today's empire lasted ${fmtNum(today.years)} years. New leaders and new crises arrive at midnight.` : `A new empire every day: new leaders, new crises, the same for everyone.`}${best ? `<br>Your longest reign: ${fmtNum(best)} years` : ''}</p>
     </div>
     <details class="more howto">
       <summary>How to play</summary>
@@ -174,7 +210,7 @@ function startGame(name, daily) {
     rng: daily ? seededRng(daily * 7919) : Math.random,
     pick: 0,          // which seat is being filled (index into SEAT_ORDER)
     step: 0,          // which crisis is being faced (index into crises)
-    crises: [],       // indexes into DATA.eras, in date order
+    crises: [],       // { c, wiki } entries from crisisPool(), in date order
     stability: DATA.startStability,
     seats: {},        // seat key -> { leader, sent }
     results: [],      // per crisis: true = survived, false = failed
@@ -182,14 +218,14 @@ function startGame(name, daily) {
     fall: null,       // { year, title, holder, lose }
     shown: null,
   };
-  state.crises = shuffle(DATA.eras.map((_, i) => i)).slice(0, DATA.crisesPerGame).sort((a, b) => a - b);
+  state.crises = deal(crisisPool(), DATA.crisesPerGame, 99).sort((a, b) => a.c.year - b.c.year);
   showPick();
 }
 
 function showPick() {
   const key = SEAT_ORDER[state.pick];
   const seat = DATA.seats[key];
-  state.shown = shuffle(seatPool(key)).slice(0, 3);
+  state.shown = deal(seatPool(key), 3, state.pick + 1);
   const cards = state.shown.map((l, i) => `<button class="card" data-i="${i}">
     <span class="name">${esc(l.name)}</span>
     <span class="meta">${esc(l.title)} · ${esc(l.place)}</span>
@@ -268,8 +304,7 @@ function planChronicle() {
   const plan = [];
   let fails = 0;
   for (let step = 0; step < state.crises.length && fails < DATA.startStability; step++) {
-    const eraIndex = state.crises[step];
-    const c = DATA.eras[eraIndex].crisis;
+    const { c, wiki } = state.crises[step];
     const scored = c.options.map((o) => {
       const strength = strengthOf(o.seat);
       return { o, strength, p: DATA.chance(strength, o.mod, step) };
@@ -278,7 +313,7 @@ function planChronicle() {
     const won = state.rng() < pick.p;
     if (!won) fails += 1;
     sent[pick.o.seat] += 1;
-    plan.push({ eraIndex, c, o: pick.o, strength: pick.strength, p: pick.p, won, holder: state.seats[pick.o.seat].leader.name });
+    plan.push({ wiki, c, o: pick.o, strength: pick.strength, p: pick.p, won, holder: state.seats[pick.o.seat].leader.name });
   }
   SEAT_ORDER.forEach((k) => { state.seats[k].sent = 0; });
   return plan;
@@ -319,7 +354,7 @@ function showChronicle() {
       ${e.won ? '' : `<p class="muted small">${fallen ? 'The last pillar falls.' : 'The empire loses a pillar.'}</p>`}
       <details class="more"><summary>What really happened</summary>
         <p>${esc(e.c.fact)}</p>
-        <p>${wikiLink(EXTRA.crises[e.eraIndex].wiki, 'Read the full story on Wikipedia')}</p>
+        <p>${wikiLink(e.wiki, 'Read the full story on Wikipedia')}</p>
       </details>`;
     log.appendChild(card);
     top.innerHTML = hud();
@@ -360,6 +395,7 @@ function showEnd() {
   const best = loadBest();
   const record = years > best;
   if (record) saveBest(years);
+  if (state.daily && !loadDaily()) saveDaily(years);   // keep the first attempt of the day
 
   const story = survived
     ? `Ruled by ${ruler}. Still standing in ${fmtYear(DATA.endYear)}: the empire that never fell.`
